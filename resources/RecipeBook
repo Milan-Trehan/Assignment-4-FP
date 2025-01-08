@@ -1,8 +1,10 @@
 import csv
 from collections import Counter
 import matplotlib.pyplot as plt
+import ipywidgets as widgets
+from IPython.display import display, clear_output, HTML
+import json
 
-# Class to store information about individual recipes
 class Recipe:
     def __init__(self, name, ingredients, steps, time_required, category, difficulty):
         self.name = name
@@ -11,302 +13,319 @@ class Recipe:
         self.time_required = time_required
         self.category = category
         self.difficulty = difficulty
+        self.is_favorite = False
+    
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'ingredients': self.ingredients,
+            'steps': self.steps,
+            'time_required': self.time_required,
+            'category': self.category,
+            'difficulty': self.difficulty,
+            'is_favorite': self.is_favorite
+        }
     
     def __str__(self):
-        # Return a string representation of the recipe for display
         return (f"Recipe: {self.name}\nCategory: {self.category}\nDifficulty: {self.difficulty}\n"
                 f"Time Required: {self.time_required} mins\nIngredients: {', '.join(self.ingredients)}\n"
                 f"Steps: {self.steps}\n")
 
-# Class to manage a collection of recipes
 class RecipeBook:
     def __init__(self):
-        self.recipes = []  # Initialize with an empty list of recipes
-        self.add_default_recipes()  # Add some default recipes
+        self.recipes = []
+        self.add_default_recipes()
     
     def add_recipe(self, recipe):
-        self.recipes.append(recipe)  # Add a new recipe to the collection
+        self.recipes.append(recipe)
 
     def remove_recipe(self, recipe):
-        self.recipes.remove(recipe)  # Remove a recipe from the collection
-                
+        self.recipes.remove(recipe)
+    
     def get_recipe_by_name(self, name):
-        # Retrieve a recipe by its name
         for recipe in self.recipes:
-            if recipe.name == name:
+            if recipe.name.lower() == name.lower():
                 return recipe
         return None
-                    
-    def get_recipes_by_category(self, category):
-        # Retrieve all recipes belonging to a specific category
-        return [recipe for recipe in self.recipes if recipe.category == category]
-                    
-    def get_recipes_by_difficulty(self, difficulty):
-        # Retrieve all recipes with a specific difficulty level
-        return [recipe for recipe in self.recipes if recipe.difficulty == difficulty]
-                    
-    def get_recipes_by_time(self, time):
-        # Retrieve all recipes that can be prepared within the specified time
-        return [recipe for recipe in self.recipes if recipe.time_required <= time]
-                    
-    def get_recipe_by_ingredient(self, ingredient):
-        # Retrieve all recipes containing a specific ingredient
-        return [recipe for recipe in self.recipes if ingredient in recipe.ingredients]
-                    
-    def analyse_ingredients(self):
-        # Analyse and count occurrences of each ingredient across all recipes
-        ingredients = []
-        for recipe in self.recipes:
-            ingredients.extend(recipe.ingredients)
-        return Counter(ingredients)
-                    
-    def analyse_categories(self):
-        # Analyse and count occurrences of each recipe category
-        categories = [recipe.category for recipe in self.recipes]
-        return Counter(categories)
     
-    def analyse_difficulties(self):
-        # Analyse and count occurrences of each difficulty level
-        difficulties = [recipe.difficulty for recipe in self.recipes]
-        return Counter(difficulties)
-                    
-    def load_from_csv(self, filepath):
-        with open(filepath, 'r', encoding='utf-8') as file:
-            # Skip the header row if it's causing issues
-            next(file)  
-            reader = csv.reader(file)
-            for row in reader:
-                if len(row) >= 3:  # Make sure we have at least name, ingredients, and steps
-                    name = row[0]
-                    ingredients = row[1].strip('"').split(', ')
-                    steps = row[2]
-                    time_required = int(row[3]) if len(row) > 3 else 0
-                    category = row[4] if len(row) > 4 else "Uncategorized"
-                    difficulty = row[5] if len(row) > 5 else "Medium"
-                    recipe = Recipe(name, ingredients, steps, time_required, category, difficulty)
-                    self.add_recipe(recipe)
-                    
-    def save_to_csv(self, filepath):
-        # Save all recipes in the recipe book to a CSV file
-        with open(filepath, 'w') as file:
-            writer = csv.DictWriter(file, fieldnames=['name', 'ingredients', 'steps', 'time_required', 'category', 'difficulty'])
-            writer.writeheader()
-            for recipe in self.recipes:
-                writer.writerow({
-                    'name': recipe.name,
-                    'ingredients': ', '.join(recipe.ingredients),
-                    'steps': recipe.steps,
-                    'time_required': recipe.time_required,
-                    'category': recipe.category,
-                    'difficulty': recipe.difficulty
-                })
-                    
-    def suggest_recipes_by_ingredients(self, available_ingredients):
-        # Suggest recipes based on the user's available ingredients
-        return [recipe for recipe in self.recipes if set(recipe.ingredients).issubset(available_ingredients)]
-                    
-    def visualise_categories(self):
-        # Visualise the distribution of recipes across categories as a pie chart
-        category_counts = self.analyse_categories()
-        labels = category_counts.keys()
-        values = category_counts.values()
-        plt.pie(values, labels=labels, autopct='%1.1f%%')
-        plt.axis('equal')  # Equal aspect ratio for a perfect circle
-        plt.show()
-
-    def display_summary(self):
-        # Display a summary of recipes categorised by their categories
-        print(f"{'Category':<20} {'Count':<10}")
-        print("-" * 30)
-        for category, count in self.analyse_categories().items():
-            print(f"{category:<20} {count:<10}")
-
+    def get_recipes_by_category(self, category):
+        return [recipe for recipe in self.recipes if recipe.category.lower() == category.lower()]
+    
+    def get_recipes_by_difficulty(self, difficulty):
+        return [recipe for recipe in self.recipes if recipe.difficulty.lower() == difficulty.lower()]
+    
+    def get_recipes_by_time(self, time):
+        return [recipe for recipe in self.recipes if recipe.time_required <= time]
+    
+    def get_recipe_by_ingredient(self, ingredient):
+        return [recipe for recipe in self.recipes if ingredient.lower() in [i.lower() for i in recipe.ingredients]]
+    
+    def get_all_recipes_json(self):
+        return json.dumps([recipe.to_dict() for recipe in self.recipes])
+    
+    def get_all_categories(self):
+        return list(set(recipe.category for recipe in self.recipes))
+    
     def add_default_recipes(self):
-        # Some of my favourite recipes added to the recipe book as defaults
         default_recipes = [
-            Recipe("Spaghetti Bolognese", ["spaghetti", "minced beef", "tomato sauce", "onion", "garlic"], "Cook spaghetti. Cook minced beef with onion and garlic. Add tomato sauce. Mix with spaghetti.", 30, "Main Course", "Easy"),
-            Recipe("Pancakes", ["flour", "milk", "egg", "sugar", "butter"], "Mix ingredients. Cook on a hot pan.", 15, "Breakfast", "Easy"),
-            Recipe("Caesar Salad", ["lettuce", "croutons", "chicken", "parmesan", "caesar dressing"], "Mix all ingredients together.", 10, "Salad", "Easy"),
-            Recipe("Chicken Curry", ["chicken", "curry powder", "coconut milk", "onion", "garlic", "ginger"], "Cook chicken with onion, garlic, and ginger. Add curry powder and coconut milk. Simmer.", 40, "Main Course", "Medium"),
-            Recipe("Beef Stew", ["beef", "potatoes", "carrots", "onion", "beef broth"], "Cook beef with onion. Add potatoes, carrots, and beef broth. Simmer.", 120, "Main Course", "Hard"),
-            Recipe("Omelette", ["eggs", "cheese", "ham", "bell pepper"], "Beat eggs. Cook with cheese, ham, and bell pepper.", 10, "Breakfast", "Easy"),
-            Recipe("Grilled Cheese Sandwich", ["bread", "cheese", "butter"], "Butter bread. Place cheese between slices. Grill.", 5, "Snack", "Easy"),
-            Recipe("Tacos", ["tortillas", "ground beef", "lettuce", "tomato", "cheese"], "Cook ground beef. Assemble tacos with lettuce, tomato, and cheese.", 20, "Main Course", "Easy"),
-            Recipe("Chocolate Cake", ["flour", "sugar", "cocoa powder", "baking powder", "eggs", "milk", "butter"], "Mix ingredients. Bake.", 60, "Dessert", "Medium"),
-            Recipe("Fruit Salad", ["apple", "banana", "orange", "grapes"], "Chop fruits. Mix together.", 5, "Dessert", "Easy")
+            Recipe(
+                "Spaghetti Bolognese",
+                ["spaghetti", "minced beef", "tomato sauce", "onion", "garlic"],
+                "Cook spaghetti. Cook minced beef with onion and garlic. Add tomato sauce. Mix with spaghetti.",
+                30,
+                "Main Course",
+                "Easy"
+            ),
+            Recipe(
+                "Caesar Salad",
+                ["lettuce", "croutons", "chicken", "parmesan", "caesar dressing"],
+                "Mix all ingredients together.",
+                15,
+                "Salad",
+                "Easy"
+            ),
+            Recipe(
+                "Chocolate Cake",
+                ["flour", "sugar", "cocoa powder", "baking powder", "eggs", "milk", "butter"],
+                "Mix ingredients. Bake.",
+                60,
+                "Dessert",
+                "Medium"
+            ),
+            Recipe(
+                "Pancakes",
+                ["flour", "milk", "egg", "sugar", "butter"],
+                "Mix ingredients. Cook on a hot pan.",
+                15,
+                "Breakfast",
+                "Easy"
+            ),
+            Recipe(
+                "Chicken Curry",
+                ["chicken", "curry powder", "coconut milk", "onion", "garlic", "ginger"],
+                "Cook chicken with onion, garlic, and ginger. Add curry powder and coconut milk. Simmer.",
+                40,
+                "Main Course",
+                "Medium"
+            ),
+            Recipe(
+                "Beef Stew",
+                ["beef", "potatoes", "carrots", "onion", "beef broth"],
+                "Cook beef with onion. Add potatoes, carrots, and beef broth. Simmer.",
+                120,
+                "Main Course",
+                "Hard"
+            ),
+            Recipe(
+                "Omelette",
+                ["eggs", "cheese", "ham", "bell pepper"],
+                "Beat eggs. Cook with cheese, ham, and bell pepper.",
+                10,
+                "Breakfast",
+                "Easy"
+            ),
+            Recipe(
+                "Grilled Cheese Sandwich",
+                ["bread", "cheese", "butter"],
+                "Butter bread. Place cheese between slices. Grill.",
+                5,
+                "Snack",
+                "Easy"
+            ),
+            Recipe(
+                "Tacos",
+                ["tortillas", "ground beef", "lettuce", "tomato", "cheese"],
+                "Cook ground beef. Assemble tacos with lettuce, tomato, and cheese.",
+                20,
+                "Main Course",
+                "Easy"
+            ),
+            Recipe(
+                "Fruit Salad",
+                ["kiwi", "watermelon", "orange", "grapes"],
+                "Chop fruits. Mix together.",
+                5,
+                "Dessert",
+                "Easy"
+            )
         ]
         for recipe in default_recipes:
             self.add_recipe(recipe)
 
-# CLI for interacting with the RecipeBook
-class RecipeBookCLI:
+class RecipeManager:
     def __init__(self):
-        self.recipe_book = RecipeBook()  # Initialize the CLI with a new RecipeBook
+        self.recipe_book = RecipeBook()
+        self.output = widgets.Output()
+        self.setup_ui()
+        
+    def setup_ui(self):
+        # Create the header
+        header = widgets.HTML(value="<h1 style='font-size: 24px; margin-bottom: 20px; color: #4CAF50;'>My Recipe Book</h1>")
+        
+        # Create dropdown menus
+        self.view_dropdown = widgets.Dropdown(
+            options=['Full Collection', 'Quick Meals', 'Favorites'],
+            description='View:',
+            style={'description_width': '100px'},
+            layout=widgets.Layout(width='300px')
+        )
+        
+        self.filter_dropdown = widgets.Dropdown(
+            options=['All'] + self.recipe_book.get_all_categories(),
+            description='Filter:',
+            style={'description_width': '100px'},
+            layout=widgets.Layout(width='300px')
+        )
+        
+        # Create buttons
+        self.add_button = widgets.Button(description="Add Recipe", button_style='success')
+        self.remove_button = widgets.Button(description="Remove Recipe", button_style='danger')
+        self.refresh_button = widgets.Button(description="Refresh", button_style='info')
+        
+        # Set up button callbacks
+        self.add_button.on_click(self.add_recipe_ui)
+        self.remove_button.on_click(self.remove_recipe_ui)
+        self.refresh_button.on_click(self.refresh_display)
+        self.view_dropdown.observe(self.refresh_display, names='value')
+        self.filter_dropdown.observe(self.refresh_display, names='value')
+        
+        # Create layout
+        filters = widgets.VBox([self.view_dropdown, self.filter_dropdown])
+        buttons = widgets.HBox([self.add_button, self.remove_button, self.refresh_button])
+        
+        # Display everything
+        display(header)
+        display(filters)
+        display(buttons)
+        display(self.output)
+        
+        # Show initial recipes
+        self.refresh_display()
     
-    def run(self):
-        # Main loop for the CLI interface
-        while True:
-            print("\n--- Recipe Book ---")
-            print("1. Add Recipe")
-            print("2. Remove Recipe")
-            print("3. View Recipe")
-            print("4. View Recipes by Category")
-            print("5. View Recipes by Difficulty")
-            print("6. View Recipes by Time")
-            print("7. View Recipes by Ingredient")
-            print("8. Analyse Ingredients")
-            print("9. Analyse Categories")
-            print("10. Analyse Difficulties")
-            print("11. Load/Save Recipes")
-            print("12. Suggest Recipes")
-            print("13. Display Summary")
-            print("14. Exit")
-
-            choice = input("Enter choice: ")
-            if choice == '1':
-                self.add_recipe()
-            elif choice == '2':
-                self.remove_recipe()
-            elif choice == '3':
-                self.view_recipe()
-            elif choice == '4':
-                self.view_recipes_by_category()
-            elif choice == '5':
-                self.view_recipes_by_difficulty()
-            elif choice == '6':
-                self.view_recipes_by_time()
-            elif choice == '7':
-                self.view_recipes_by_ingredient()
-            elif choice == '8':
-                self.analyse_ingredients()
-            elif choice == '9':
-                self.analyse_categories()
-            elif choice == '10':
-                self.analyse_difficulties()
-            elif choice == '11':
-                self.load_save_recipes()
-            elif choice == '12':
-                self.suggest_recipes()
-            elif choice == '13':
-                self.recipe_book.display_summary()
-            elif choice == '14':
-                break
+    def create_recipe_card(self, recipe):
+        steps_button = widgets.Button(description="Steps", layout=widgets.Layout(width='auto'), button_style='primary')
+        steps_button.style.button_color = 'lightblue'
+        steps_button.on_click(lambda b: self.toggle_steps(recipe_card.steps_output, recipe))
+        
+        ingredients_button = widgets.Button(description="Ingredients", layout=widgets.Layout(width='auto'), button_style='warning')
+        ingredients_button.style.button_color = 'Gold'
+        ingredients_button.on_click(lambda b: self.toggle_ingredients(recipe_card.ingredients_output, recipe))
+        
+        favorite_button = widgets.ToggleButton(
+            value=recipe.is_favorite,
+            description='★',
+            button_style='warning' if recipe.is_favorite else '',
+            layout=widgets.Layout(width='auto')
+        )
+        favorite_button.observe(lambda change: self.toggle_favorite(change, recipe), names='value')
+        
+        steps_output = widgets.Output()
+        ingredients_output = widgets.Output()
+        
+        recipe_card = widgets.VBox([
+            widgets.HTML(value=f"""
+                <div style="padding: 20px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9;">
+                    <h3 style="margin: 0; font-size: 18px; color: #333;">{recipe.name}</h3>
+                    <p style="margin: 5px 0; color: #666;">
+                        Category: {recipe.category}, Difficulty: {recipe.difficulty}, Time: {recipe.time_required} mins
+                    </p>
+                </div>
+            """),
+            widgets.HBox([steps_button, ingredients_button, favorite_button]),
+            steps_output,
+            ingredients_output
+        ])
+        
+        recipe_card.steps_output = steps_output
+        recipe_card.ingredients_output = ingredients_output
+        
+        return recipe_card
+    
+    def toggle_steps(self, output, recipe):
+        with output:
+            clear_output()
+            display(HTML(f"<p>{recipe.steps}</p>"))
+    
+    def toggle_ingredients(self, output, recipe):
+        with output:
+            clear_output()
+            display(HTML(f"<p>{', '.join(recipe.ingredients)}</p>"))
+    
+    def toggle_favorite(self, change, recipe):
+        recipe.is_favorite = change['new']
+        change['owner'].button_style = 'warning' if recipe.is_favorite else ''
+    
+    def refresh_display(self, b=None):
+        with self.output:
+            clear_output()
+            filter_value = self.filter_dropdown.value
+            view_value = self.view_dropdown.value
+            
+            if filter_value == 'All':
+                recipes = self.recipe_book.recipes
             else:
-                print("Invalid choice. Please try again.")
+                recipes = self.recipe_book.get_recipes_by_category(filter_value)
+            
+            if view_value == 'Quick Meals':
+                recipes = [recipe for recipe in recipes if recipe.time_required <= 30]
+            elif view_value == 'Favorites':
+                recipes = [recipe for recipe in recipes if recipe.is_favorite]
+            
+            recipe_cards = [self.create_recipe_card(recipe) for recipe in recipes]
+            accordion = widgets.Accordion(children=recipe_cards)
+            for i, recipe in enumerate(recipes):
+                accordion.set_title(i, recipe.name)
+            display(accordion)
+    
+    def add_recipe_ui(self, b=None):
+        with self.output:
+            clear_output()
+            # Create input widgets
+            name = widgets.Text(description="Name:", layout=widgets.Layout(width='400px'))
+            ingredients = widgets.Text(description="Ingredients:", layout=widgets.Layout(width='400px'))
+            steps = widgets.Text(description="Steps:", layout=widgets.Layout(width='400px'))
+            time_required = widgets.IntText(description="Time (mins):", layout=widgets.Layout(width='400px'))
+            category = widgets.Text(description="Category:", layout=widgets.Layout(width='400px'))
+            difficulty = widgets.Text(description="Difficulty:", layout=widgets.Layout(width='400px'))
+            submit = widgets.Button(description="Add Recipe", button_style='success')
+            
+            def on_submit(b):
+                new_recipe = Recipe(
+                    name.value,
+                    ingredients.value.split(','),
+                    steps.value,
+                    time_required.value,
+                    category.value,
+                    difficulty.value
+                )
+                self.recipe_book.add_recipe(new_recipe)
+                self.update_category_dropdown()
+                self.refresh_display()
+            
+            submit.on_click(on_submit)
+            display(widgets.VBox([name, ingredients, steps, time_required, category, difficulty, submit]))
+    
+    def remove_recipe_ui(self, b=None):
+        with self.output:
+            clear_output()
+            # Create input widget
+            name = widgets.Text(description="Recipe name:", layout=widgets.Layout(width='400px'))
+            submit = widgets.Button(description="Remove", button_style='danger')
+            
+            def on_submit(b):
+                recipe = self.recipe_book.get_recipe_by_name(name.value)
+                if recipe:
+                    self.recipe_book.remove_recipe(recipe)
+                    self.update_category_dropdown()
+                    self.refresh_display()
+            
+            submit.on_click(on_submit)
+            display(widgets.VBox([name, submit]))
+    
+    def update_category_dropdown(self):
+        self.filter_dropdown.options = ['All'] + self.recipe_book.get_all_categories()
 
-    def add_recipe(self):
-        # Add a new recipe
-        name = input("Enter recipe name: ")
-        ingredients = input("Enter ingredients (comma separated): ").split(', ')
-        steps = input("Enter steps: ")
-        time_required = int(input("Enter time required: "))
-        category = input("Enter category: ")
-        difficulty = input("Enter difficulty: ")
-        recipe = Recipe(name, ingredients, steps, time_required, category, difficulty)
-        self.recipe_book.add_recipe(recipe)
-        print("Recipe added successfully.")
-
-    def remove_recipe(self):
-        # Remove an existing recipe
-        name = input("Enter recipe name to remove: ")
-        recipe = self.recipe_book.get_recipe_by_name(name)
-        if recipe:
-            self.recipe_book.remove_recipe(recipe)
-            print("Recipe removed successfully.")
-        else:
-            print("Recipe not found.")
-
-    def view_recipe(self):
-        # View a specific recipe by name
-        name = input("Enter recipe name to view: ")
-        recipe = self.recipe_book.get_recipe_by_name(name)
-        if recipe:
-            print(recipe)
-        else:
-            print("Recipe not found.")
-
-    def view_recipes_by_category(self):
-        # View recipes by category
-        category = input("Enter category to view: ")
-        recipes = self.recipe_book.get_recipes_by_category(category)
-        if recipes:
-            for recipe in recipes:
-                print(recipe)
-        else:
-            print("No recipes found in this category.")
-
-    def view_recipes_by_difficulty(self):
-        # View recipes by difficulty
-        difficulty = input("Enter difficulty to view: ")
-        recipes = self.recipe_book.get_recipes_by_difficulty(difficulty)
-        if recipes:
-            for recipe in recipes:
-                print(recipe)
-        else:
-            print("No recipes found with this difficulty.")
-
-    def view_recipes_by_time(self):
-        # View recipes by maximum preparation time
-        time = int(input("Enter maximum time to view: "))
-        recipes = self.recipe_book.get_recipes_by_time(time)
-        if recipes:
-            for recipe in recipes:
-                print(recipe)
-        else:
-            print("No recipes found within this time.")
-
-    def view_recipes_by_ingredient(self):
-        # View recipes by ingredient
-        ingredient = input("Enter ingredient to view: ")
-        recipes = self.recipe_book.get_recipe_by_ingredient(ingredient)
-        if recipes:
-            for recipe in recipes:
-                print(recipe)
-        else:
-            print("No recipes found with this ingredient.")
-
-    def analyse_ingredients(self):
-        # Analyse and display ingredient occurrences
-        ingredients_count = self.recipe_book.analyse_ingredients()
-        for ingredient, count in ingredients_count.items():
-            print(f"{ingredient}: {count}")
-
-    def analyse_categories(self):
-        # Analyse and display category occurrences
-        categories_count = self.recipe_book.analyse_categories()
-        for category, count in categories_count.items():
-            print(f"{category}: {count}")
-
-    def analyse_difficulties(self):
-        # Analyse and display difficulty occurrences
-        difficulties_count = self.recipe_book.analyse_difficulties()
-        for difficulty, count in difficulties_count.items():
-            print(f"{difficulty}: {count}")
-
-    def load_save_recipes(self):
-        # Load or save recipes to/from a CSV file
-        choice = input("Enter 'load' to load recipes from CSV or 'save' to save recipes to CSV: ")
-        if choice == 'load':
-            filepath = input("Enter CSV file path to load: ")
-            self.recipe_book.load_from_csv(filepath)
-            print("Recipes loaded successfully.")
-        elif choice == 'save':
-            filepath = input("Enter CSV file path to save: ")
-            self.recipe_book.save_to_csv(filepath)
-            print("Recipes saved successfully.")
-        else:
-            print("Invalid choice. Please try again.")
-
-    def suggest_recipes(self):
-        # Suggest recipes based on available ingredients
-        available_ingredients = input("Enter available ingredients (comma separated): ").split(', ')
-        recipes = self.recipe_book.suggest_recipes_by_ingredients(available_ingredients)
-        if recipes:
-            for recipe in recipes:
-                print(recipe)
-        else:
-            print("No recipes found with the available ingredients.")
-
-if __name__ == "__main__":
+# Initialize and display the manager
+manager = RecipeManager()
     cli = RecipeBookCLI()
     cli.run()
